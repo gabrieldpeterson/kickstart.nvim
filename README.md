@@ -1,5 +1,180 @@
 # kickstart.nvim
 
+## Gabe's instructions
+*** Begin Gabe's notes
+https://www.youtube.com/watch?v=m8C0Cq9Uv9o
+
+***Note: Don't use the default terminal. Use a terminal emulator like Kitty***
+## Kitty
+### Install JetBrains Mono Nerd Font
+```
+brew install --cask font-jetbrains-mono-nerd-font
+```
+
+### Set font as default
+Add to the settings config
+```
+font_family JetBrainsMono Nerd Font Mono
+font_size 14
+map ctrl+shift+t new_tab_with_cwd
+```
+
+# Kickstart
+https://github.com/nvim-lua/kickstart.nvim
+Fork, then clone your directory
+In MacOS, clone to `~/.config`, then rename `kickstart.nvim` to `nvim`
+
+## Help
+` sh` (space sh) to view help
+
+# Telescope Fuzzy Finder
+![[default-telescope-kickstart-keymaps.png]]
+# Language Server Protocol (LSP)
+`gd` go to definition
+`gr` go to reference
+` ws` find symbols in current document
+` ws` find symbols in current workspace
+`K` find documentation provided by LSP
+
+In the `init.lua` uncomment out the 
+```
+--clangd = {}
+and 
+--pyright = {}
+by removing the --
+```
+
+Make sure the install the correct language support
+MacOS:
+```
+brew install llvm
+brew install pyright
+```
+
+# Autocomplete
+Uses nvim-cmp
+`<C-n>` next item in autocomplete
+`<C-p>` previous item in autocomplete
+`<C-y>` to accept
+
+# Comments
+Can add special highlighting by `NOTE:` `TODO:` `FIXME:`
+
+# Helpful Additions
+`va)` will visually select around the next parenthesis
+`yinq` will yank inside the next quote
+`ci'` will change inside the quote
+
+![[mini-neovim-keys.png]]
+
+# C++ Debugging
+Init `init.lua`, uncomment the line `--require 'kickstart.plugins.debug'`
+
+On MacOS we'll use the built-in LLDB that comes with XCode Find the LLDB, use the following commands in the terminal
+
+```
+sudo find /Applications/Xcode.app -name lldb-vscode 2>/dev/null 
+sudo find /Library/Developer/CommandLineTools -name lldb-vscode 2>/dev/null
+```
+
+If none are installed, download CodeLLDB at [https://github.com/vadimcn/codelldb/releases](https://github.com/vadimcn/codelldb/releases "https://github.com/vadimcn/codelldb/releases") Select the Darwin arm64 release Download and extract to
+
+```~/.local/share/nvim/dap_adapters/codelldb/```
+
+With the command
+
+```
+unzip ~/Downloads/codelldb-darwin-arm64.vsix -d ~/.local/share/nvim/dap_adapters/codelldb
+```
+
+Ensure it's executable
+
+```
+chmod +x ~/.local/share/nvim/dap_adapters/codelldb/extension/adapter/codelldb
+```
+
+Run the following commands to allow MacOS to run them
+```
+xattr -d com.apple.quarantine ~/.local/share/nvim/dap_adapters/codelldb/extension/adapter/codelldb
+
+// To recursively get all files in codelldb out of quarantine
+xattr -r -d com.apple.quarantine ~/.local/share/nvim/dap_adapters/codelldb
+```
+
+Verify the path
+
+```
+find ~/.local/share/nvim/dap_adapters/codelldb/extension -type f -name codelldb
+```
+
+Add the following, with the verified path, in `init.lua`
+
+```
+local dap = require('dap')
+
+dap.adapters.lldb = {
+  type = 'server',
+  port = "${port}",
+  executable = {
+    command = vim.fn.expand("~/.local/share/nvim/dap_adapters/codelldb/extension/adapter/codelldb"),
+    args = {"--port", "${port}"},
+  },
+}
+
+dap.configurations.cpp = {
+  {
+    name = "Launch file",
+    type = "lldb",
+    request = "launch",
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+    args = {},
+  },
+}
+dap.configurations.c = dap.configurations.cpp
+```
+
+## Add Keyboard Shortcuts 
+
+Add to `init.lua` below the above code
+```
+-- Continue or start debugging (F5)
+vim.keymap.set('n', '<F5>', dap.continue, { desc = "Start/Continue Debugging" })
+
+-- Step Over (F10)
+vim.keymap.set('n', '<F10>', dap.step_over, { desc = "Step Over" })
+
+-- Step Into (F11)
+vim.keymap.set('n', '<F11>', dap.step_into, { desc = "Step Into" })
+
+-- Step Out (Shift+F11)
+vim.keymap.set('n', '<S-F11>', dap.step_out, { desc = "Step Out" })
+
+-- Toggle Breakpoint (Leader + b)
+vim.keymap.set('n', '<leader>b', dap.toggle_breakpoint, { desc = "Toggle Breakpoint" })
+
+-- Set Conditional Breakpoint (Leader + B)
+vim.keymap.set('n', '<leader>B', function()
+  dap.set_breakpoint(vim.fn.input('Breakpoint condition: '))
+end, { desc = "Conditional Breakpoint" })
+
+-- Open Debugger REPL (Leader + dr)
+vim.keymap.set('n', '<leader>dr', dap.repl.open, { desc = "Open Debugger REPL" })
+
+-- Run Last Debug Session (Leader + dl)
+vim.keymap.set('n', '<leader>dl', dap.run_last, { desc = "Run Last Debug Session" })
+
+-- Toggle DAP UI (Leader + du)
+vim.keymap.set('n', '<leader>du', function()
+  require('dapui').toggle()
+end, { desc = "Toggle DAP UI" })
+```
+
+*** End Gabe's notes
+
 ## Introduction
 
 A starting point for Neovim that is:

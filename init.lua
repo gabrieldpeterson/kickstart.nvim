@@ -981,7 +981,7 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
@@ -1019,6 +1019,65 @@ require('lazy').setup({
     },
   },
 })
+
+local dap = require 'dap'
+
+dap.adapters.lldb = {
+  type = 'server',
+  port = '${port}',
+  executable = {
+    command = vim.fn.expand '~/.local/share/nvim/dap_adapters/codelldb/extension/adapter/codelldb',
+    args = { '--port', '${port}' },
+  },
+}
+
+dap.configurations.cpp = {
+  {
+    name = 'Launch file',
+    type = 'lldb',
+    request = 'launch',
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+    args = {},
+  },
+}
+dap.configurations.c = dap.configurations.cpp
+
+local dap = require 'dap'
+
+-- Continue or start debugging (F5)
+vim.keymap.set('n', '<F5>', dap.continue, { desc = 'Start/Continue Debugging' })
+
+-- Step Over (F10)
+vim.keymap.set('n', '<F10>', dap.step_over, { desc = 'Step Over' })
+
+-- Step Into (F11)
+vim.keymap.set('n', '<F11>', dap.step_into, { desc = 'Step Into' })
+
+-- Step Out (Shift+F11)
+vim.keymap.set('n', '<S-F11>', dap.step_out, { desc = 'Step Out' })
+
+-- Toggle Breakpoint (Leader + b)
+vim.keymap.set('n', '<leader>b', dap.toggle_breakpoint, { desc = 'Toggle Breakpoint' })
+
+-- Set Conditional Breakpoint (Leader + B)
+vim.keymap.set('n', '<leader>B', function()
+  dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ')
+end, { desc = 'Conditional Breakpoint' })
+
+-- Open Debugger REPL (Leader + dr)
+vim.keymap.set('n', '<leader>dr', dap.repl.open, { desc = 'Open Debugger REPL' })
+
+-- Run Last Debug Session (Leader + dl)
+vim.keymap.set('n', '<leader>dl', dap.run_last, { desc = 'Run Last Debug Session' })
+
+-- Toggle DAP UI (Leader + du)
+vim.keymap.set('n', '<leader>du', function()
+  require('dapui').toggle()
+end, { desc = 'Toggle DAP UI' })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
