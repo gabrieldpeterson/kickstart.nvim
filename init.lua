@@ -90,6 +90,89 @@ P.S. You can delete this when you're done too. It's your config now! :)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+-- ──────────────────────────────────────────────────────────────────────────────
+-- Simplified Godot integration - focusing on LSP and indentation only
+do
+  local uv = vim.uv or vim.loop
+  local fn = vim.fn
+  local cwd = fn.getcwd()
+  local project_file = cwd .. '/project.godot'
+
+  -- Check if we're in a Godot project
+  if uv.fs_stat(project_file) then
+    vim.g.is_godot_project = true
+
+    -- Setup GDScript specific settings
+    vim.api.nvim_create_autocmd({ 'BufNewFile', 'BufRead' }, {
+      pattern = { '*.gd', '*.gdscript' },
+      callback = function(args)
+        local bufnr = args.buf
+        -- Set filetype
+        vim.bo[bufnr].filetype = 'gdscript'
+
+        -- Indentation settings for GDScript
+        vim.bo[bufnr].expandtab = true
+        vim.bo[bufnr].tabstop = 4
+        vim.bo[bufnr].shiftwidth = 4
+        vim.bo[bufnr].softtabstop = 4
+
+        -- Enable auto-indent for GDScript
+        vim.bo[bufnr].autoindent = true
+        vim.bo[bufnr].smartindent = true
+
+        -- Disable swap files for GDScript files
+        vim.bo[bufnr].swapfile = false
+
+        print 'GDScript file detected and configured'
+
+        -- Try setting up LSP for this buffer
+        -- Make sure you have nvim-lspconfig plugin loaded
+        pcall(function()
+          -- Use local variables to avoid global namespace issues
+          local ok, lsp = pcall(require, 'lspconfig')
+          if ok then
+            -- Configure GDScript LSP connection
+            if not lsp.gdscript.manager then
+              lsp.gdscript.setup {
+                cmd = { 'nc', 'localhost', '6005' },
+                filetypes = { 'gdscript', 'gd' },
+                root_dir = function()
+                  return vim.fn.getcwd()
+                end,
+                on_attach = function(client, buf)
+                  print 'LSP attached for GDScript'
+
+                  -- Setup key mappings
+                  local opts = { buffer = buf }
+                  vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+                  vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+                  vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
+
+                  -- Enable omnifunc completion
+                  vim.bo[buf].omnifunc = 'v:lua.vim.lsp.omnifunc'
+                end,
+              }
+            end
+
+            -- Start LSP client for this buffer immediately
+            vim.cmd 'LspStart'
+          else
+            print "LSP config not available - require('lspconfig') failed"
+          end
+        end)
+      end,
+    })
+
+    -- Setup Godot-specific commands
+    vim.api.nvim_create_user_command('GodotBreakpoint', function()
+      vim.cmd 'normal! obreakpoint'
+      vim.cmd 'write'
+    end, {})
+    vim.keymap.set('n', '<leader>gb', ':GodotBreakpoint<CR>', { desc = 'Add Godot breakpoint' })
+  end
+end
+-- ──────────────────────────────────────────────────────────────────────────────
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = false
 
@@ -661,6 +744,7 @@ require('lazy').setup({
         clangd = {},
         -- gopls = {},
         pyright = {},
+        gdscript = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -699,11 +783,15 @@ require('lazy').setup({
       -- `dependencies` table for `nvim-lspconfig` above.
       --
       -- You can add other tools here that you want Mason to install
-      -- for you, so that they are available from within Neovim.
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua', -- Used to format Lua code
-      })
+      -- for you, so that they are available from within Neovim.+  -- build install list, but skip "gdscript" (not a Mason package)
+      local ensure_installed = {}
+      for name, _ in pairs(servers) do
+        if name ~= 'gdscript' then
+          table.insert(ensure_installed, name)
+        end
+      end
+
+      table.insert(ensure_installed, 'stylua')
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
       require('mason-lspconfig').setup {
@@ -952,7 +1040,22 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'gdscript',
+        'godot_resource',
+        'gdshader',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -1020,6 +1123,11 @@ require('lazy').setup({
   },
 })
 
+-- Gabe's additional modifications / config
+vim.opt.expandtab = false
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
+
 local dap = require 'dap'
 
 dap.adapters.lldb = {
@@ -1047,6 +1155,20 @@ dap.configurations.cpp = {
 dap.configurations.c = dap.configurations.cpp
 
 local dap = require 'dap'
+local dapui = require 'dapui'
+
+-- Automatically open the DAP UI when debugging starts.
+dap.listeners.after.event_initialized['dapui_config'] = function()
+  dapui.open()
+end
+
+-- Override the listeners for session termination and exit to prevent auto-closing.
+dap.listeners.after.event_terminated['dapui_config'] = function()
+  -- Do nothing on termination.
+end
+dap.listeners.after.event_exited['dapui_config'] = function()
+  -- Do nothing on exit.
+end
 
 -- Continue or start debugging (F5)
 vim.keymap.set('n', '<F5>', dap.continue, { desc = 'Start/Continue Debugging' })

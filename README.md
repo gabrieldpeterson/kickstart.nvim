@@ -14,9 +14,11 @@ brew install --cask font-jetbrains-mono-nerd-font
 ### Set font as default
 Add to the settings config
 ```
+map ctrl+shift+t new_tab_with_cwd
 font_family JetBrainsMono Nerd Font Mono
 font_size 14
-map ctrl+shift+t new_tab_with_cwd
+allow_remote_control yes
+listen_on unix:/tmp/kitty-socket
 ```
 
 # Kickstart
