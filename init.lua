@@ -769,6 +769,7 @@ require('lazy').setup({
             },
           },
         },
+        tsserver = {},
       }
 
       -- Ensure the servers and tools above are installed
@@ -785,9 +786,15 @@ require('lazy').setup({
       -- You can add other tools here that you want Mason to install
       -- for you, so that they are available from within Neovim.+  -- build install list, but skip "gdscript" (not a Mason package)
       local ensure_installed = {}
+      local lsp_to_mason = {
+        tsserver = 'typescript-language-server',
+        lua_ls = 'lua-language-server',
+        -- add more mappings as needed
+      }
+
       for name, _ in pairs(servers) do
         if name ~= 'gdscript' then
-          table.insert(ensure_installed, name)
+          table.insert(ensure_installed, lsp_to_mason[name] or name)
         end
       end
 
